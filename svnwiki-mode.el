@@ -178,3 +178,4 @@
   (setq font-lock-defaults '(svnwiki-font-lock-keywords t)))
 
 (provide 'svnwiki-mode)
+;;; svnwiki-mode.el ends here
