@@ -39,60 +39,78 @@
   :group 'text)
 
 ;; NOTE: headings go from level 2 to 6 by design
+
+(defconst svnwiki-level-2-re
+  (rx bol "== " (* any) eol))
+
 (defface svnwiki-level-2
   '((t :inherit outline-1))
   "Level 2 face"
   :group 'svnwiki)
+
+(defconst svnwiki-level-3-re
+  (rx bol "=== " (* any) eol))
 
 (defface svnwiki-level-3
   '((t :inherit outline-2))
   "Level 3 face"
   :group 'svnwiki)
 
+(defconst svnwiki-level-4-re
+  (rx bol "==== " (* any) eol))
+
 (defface svnwiki-level-4
   '((t :inherit outline-3))
   "Level 4 face"
   :group 'svnwiki)
+
+(defconst svnwiki-level-5-re
+  (rx bol "===== " (* any) eol))
 
 (defface svnwiki-level-5
   '((t :inherit outline-4))
   "Level 5 face"
   :group 'svnwiki)
 
+(defconst svnwiki-level-6-re
+  (rx bol "====== " (* any) eol))
+
 (defface svnwiki-level-6
   '((t :inherit outline-5))
   "Level 6 face"
   :group 'svnwiki)
 
-(defface svnwiki-ruler
-  '((t :inherit font-lock-keyword-face))
-  "Ruler face"
-  :group 'svnwiki)
+(defconst svnwiki-strong-re
+  (rx "'''"
+      (group (+ (not (any " \t\n")))
+             (* (: (+ (any " \t\n"))
+                   (+ (not (any " \t\n"))))))
+      "'''"))
 
-(defface svnwiki-bullet
+(defface svnwiki-strong
   '((t :inherit bold))
-  "Bullet/number item face"
+  "Strong face"
   :group 'svnwiki)
 
-(defface svnwiki-definition
-  '((t :inherit font-lock-variable-name-face))
-  "Definition list item face"
-  :group 'svnwiki)
-
-(defface svnwiki-definition-delimiter
-  '((t :inherit bold))
-  "Definition list item delimiter face"
-  :group 'svnwiki)
+(defconst svnwiki-emphasis-re
+  (rx (: (or bol (not (any "'"))))
+      "''"
+      (group
+       (: (+ (not (any " \t\n'"))))
+       (* (: (+ (any " \t\n"))
+             (+ (not (any " \t\n'"))))))
+      "''"
+      (: (or eol (not (any "'"))))))
 
 (defface svnwiki-emphasis
   '((t :inherit italic))
   "Emphasis face"
   :group 'svnwiki)
 
-(defface svnwiki-strong
-  '((t :inherit bold))
-  "Strong face"
-  :group 'svnwiki)
+(defconst svnwiki-literal-re
+  (rx (group "{{")
+      (group (+? any))
+      (group "}}")))
 
 (defface svnwiki-literal
   '((t :inherit font-lock-constant-face))
@@ -103,6 +121,13 @@
   '((t :inherit bold))
   "Literal delimiter face"
   :group 'svnwiki)
+
+(defconst svnwiki-link-re
+  (rx (group "[[")
+      (? (: (group (or "toc" "image")) ":"))
+      (*? any)
+      (? (: "|" (group (+? any))))
+      (group "]]")))
 
 (defface svnwiki-link-delimiter
   '((t :inherit bold))
@@ -118,6 +143,46 @@
   '((t :inherit font-lock-string-face))
   "Link caption face"
   :group 'svnwiki)
+
+(defconst svnwiki-ruler-re
+  (rx bol "----" eol))
+
+(defface svnwiki-ruler
+  '((t :inherit font-lock-keyword-face))
+  "Ruler face"
+  :group 'svnwiki)
+
+(defconst svnwiki-bullet-re
+  (rx bol (group (+ (any "*#"))) " " (* any) eol))
+
+(defface svnwiki-bullet
+  '((t :inherit bold))
+  "Bullet/number item face"
+  :group 'svnwiki)
+
+(defconst svnwiki-definition-re
+  (rx bol (group ";")
+      " " (group (*? any))
+      " " (group ":")
+      " " (* any) eol))
+
+(defface svnwiki-definition
+  '((t :inherit font-lock-variable-name-face))
+  "Definition list item face"
+  :group 'svnwiki)
+
+(defface svnwiki-definition-delimiter
+  '((t :inherit bold))
+  "Definition list item delimiter face"
+  :group 'svnwiki)
+
+(defconst svnwiki-doc-re
+  (rx (group
+       "<" (group (or "procedure" "macro" "read" "parameter" "record" "string"
+                      "class" "method" "constant" "setter" "syntax" "type"))
+       ">")
+      (group (*? any))
+      (group "</" (backref 2) ">")))
 
 (defface svnwiki-doc-tag
   '((t :inherit font-lock-builtin-face))
@@ -137,42 +202,43 @@
 ;; - hiding url with caption
 ;; - yasnippet snippets
 
-
-(defvar svnwiki-font-lock-keywords
-  '(("^== .*$" . 'svnwiki-level-2)
-    ("^=== .*$" . 'svnwiki-level-3)
-    ("^==== .*$" . 'svnwiki-level-4)
-    ("^===== .*$" . 'svnwiki-level-5)
-    ("^====== .*$" . 'svnwiki-level-6)
+(defconst svnwiki-font-lock-keywords
+  `((,svnwiki-level-2-re . 'svnwiki-level-2)
+    (,svnwiki-level-3-re . 'svnwiki-level-3)
+    (,svnwiki-level-4-re . 'svnwiki-level-4)
+    (,svnwiki-level-5-re . 'svnwiki-level-5)
+    (,svnwiki-level-6-re . 'svnwiki-level-6)
 
     ;; FIXME potentially multi-line after wrapping
     ;; NOTE strong first to avoid emphasis overriding it
-    ("'''\\([^ \t\n]+\\([ \t\n]+[^ \t\n]+\\)*\\)'''" 1 'svnwiki-strong)
-    ("\\(?:^\\|[^']\\)''\\(\\(?:[^ \t\n']+\\)\\(?:[ \t\n]+[^ \t\n']+\\)*\\)''\\(?:$\\|[^']\\)" 1 'svnwiki-emphasis)
-    ("\\({{\\)\\(.+?\\)\\(}}\\)"
+    ;; FIXME overlap possible with ''foo'''bar'''
+    (,svnwiki-strong-re 1 'svnwiki-strong)
+    (,svnwiki-emphasis-re 1 'svnwiki-emphasis)
+    (,svnwiki-literal-re
      (1 'svnwiki-literal-delimiter)
      (2 'svnwiki-literal)
      (3 'svnwiki-literal-delimiter))
 
     ;; FIXME potentially multi-line with multi-word captions and wrapping
-    ("\\(\\[\\[\\)\\(?:\\(toc\\|image\\):\\)?.*?\\(?:|\\(.+?\\)\\)?\\(\\]\\]\\)"
+    (,svnwiki-link-re
      (1 'svnwiki-link-delimiter)
      (2 'svnwiki-link-prefix nil t)
      (3 'svnwiki-link-caption nil t)
      (4 'svnwiki-link-delimiter))
-    ("^----$" . 'svnwiki-ruler)
-    ("^\\([*#]+\\) .*$" 1 'svnwiki-bullet)
-    ("^\\(;\\) \\(.*?\\) \\(:\\) .*$"
+    (,svnwiki-ruler-re . 'svnwiki-ruler)
+    (,svnwiki-bullet-re 1 'svnwiki-bullet)
+    (,svnwiki-definition-re
      (1 'svnwiki-definition-delimiter)
      (2 'svnwiki-definition)
      (3 'svnwiki-definition-delimiter))
 
-    ("\\(<\\(procedure\\|macro\\|read\\|parameter\\|record\\|string\\|class\\|method\\|constant\\|setter\\|syntax\\|type\\)>\\)\\(.*?\\)\\(</\\2>\\)"
+    (,svnwiki-doc-re
      (1 'svnwiki-doc-tag)
      (3 'svnwiki-literal)
      (4 'svnwiki-doc-tag))
     ))
 
+;;;###autoload
 (define-derived-mode svnwiki-mode text-mode "svnwiki"
   "Major mode for editing svnwiki markup"
   (setq font-lock-defaults '(svnwiki-font-lock-keywords t)))
